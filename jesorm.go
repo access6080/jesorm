@@ -7,12 +7,14 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/access6080/jesorm/helpers"
+	"github.com/access6080/jesorm/structures"
 	_ "github.com/go-sql-driver/mysql" // MySQL driver
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
 
-func  Init(config Config) (*Model, error) {
+func  Init(config structures.Config) (*structures.Model, error) {
 	switch config.DriverName {
 	case "mysql", "sqlite3", "postgres":
 		db, err := sql.Open(config.DriverName, config.DSN)
@@ -25,28 +27,28 @@ func  Init(config Config) (*Model, error) {
 		}
 		
 		
-		return &Model{
-				DB: &DB{
-					db: db,
-					config: config,
+		return &structures.Model{
+				DB: &structures.DB{
+					Db: db,
+					Config: config,
 				},
-				models: make(model),
+				Models: make(structures.ModelMap),
 			}, nil
     default:
         return nil, fmt.Errorf("unsupported driver: %s", config.DriverName)
 	}
 }
 
-func AutoMigrate(m Model) error {
+func AutoMigrate(m structures.Model) error {
 	basepath := filepath.Join("jesorm", "schemas", "migrations")
-	if err := createOrmBaseDirectory(basepath); err != nil {
+	if err := helpers.CreateOrmBaseDirectory(basepath); err != nil {
 		return err
 	}
 
 	// Check migration needed
 	currentMigration := time.Now()
 
-	lastMigrationFolder, err := getLastMigration(basepath, currentMigration)
+	lastMigrationFolder, err := helpers.GetLastMigration(basepath, currentMigration)
 	if err != nil {
 		return err
 	}
@@ -59,12 +61,12 @@ func AutoMigrate(m Model) error {
 			return err
 		}
 
-		if err := generateSchema(m.models, path); err != nil {
+		if err := helpers.GenerateSchema(m.Models, path); err != nil {
 			return err
 		}
 
-		for tableName, cols := range m.models {
-			if err := createTable(*m.DB, tableName, cols); err != nil {
+		for tableName, cols := range m.Models {
+			if err := helpers.CreateTable(*m.DB, tableName, cols); err != nil {
 				return err
 			}
 		}
@@ -73,8 +75,20 @@ func AutoMigrate(m Model) error {
 	}
 
 	// A schema already exists, get the last schema and compare it to models.
+	oldModels, err := helpers.GetLastModels(lastMigrationFolder)
+	if err != nil {
+		return err
+	}
+
+	migrate, err := helpers.CompareModels(oldModels, m.Models)
+	if err != nil {
+		return err
+	}
+
 	// Perform migration if any changes exists
-	
+	if migrate {
+		
+	}
 
 	return nil
 }

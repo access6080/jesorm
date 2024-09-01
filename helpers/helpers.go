@@ -1,4 +1,4 @@
-package jesorm
+package helpers
 
 import (
 	"encoding/json"
@@ -6,12 +6,16 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"time"
+
+	"github.com/access6080/jesorm/structures"
 )
 
-func generateCreateQuery(tableName string, cols []column) string {
+
+
+
+func generateCreateQuery(tableName string, cols []structures.Column) string {
 	var queryBuilder strings.Builder
     queryBuilder.WriteString(fmt.Sprintf("CREATE TABLE %s (", lower(tableName)))
     count := 0
@@ -79,43 +83,21 @@ func constraints(cns []string) string {
 //     return fmt.Sprintf("FOREIGN KEY (%s) REFERENCES %s", column, reference)
 // }
 
-func createColumn(table interface{}) []column {
-	var cs []column
-	t := reflect.TypeOf(table)
 
-	for i := 0; i < t.NumField(); i++ {
-		var c column
-        field := t.Field(i)
-		c.Name = field.Name
-		c.Gotype = field.Type.Name()
-		if typeTag, ok := field.Tag.Lookup("type"); ok {
-			c.Sqltype = typeTag
-		}
-
-		if consTag, ok := field.Tag.Lookup("constraints"); ok {
-			c.Constraints = strings.Split(consTag, ",")
-		}
-
-		cs = append(cs, c)
-    }
-
-	return cs
-}
-
-func createTable(db DB, tableName string, cs []column) error {
+func CreateTable(db structures.DB, tableName string, cs []structures.Column) error {
 
 	query := generateCreateQuery(tableName, cs)
-	db.db.Exec(query)
+	db.Db.Exec(query)
 
 	return nil
 }
 
 
-func createOrmBaseDirectory(basepath string) error {
+func CreateOrmBaseDirectory(basepath string) error {
 	return os.MkdirAll(basepath, os.ModePerm)
 }
 
-func getLastMigration(basepath string, currentMigration time.Time) (string, error) {
+func GetLastMigration(basepath string, currentMigration time.Time) (string, error) {
 	// Check the migration directory for the last folder created before currentMigration
 	migrationsPath := filepath.Join(basepath)
 	files, err := os.ReadDir(migrationsPath)
@@ -145,7 +127,7 @@ func getLastMigration(basepath string, currentMigration time.Time) (string, erro
 	return lastMigrationFolder, nil
 }
 
-func generateSchema(m model, migrationPath string) error {
+func GenerateSchema(m structures.ModelMap, migrationPath string) error {
 	for tableName, cols := range m {
 		file, err := createSchemafile(tableName, migrationPath)
 		if err != nil {
@@ -159,7 +141,7 @@ func generateSchema(m model, migrationPath string) error {
                 }
             }()
 
-			s := schema{
+			s := structures.Schema{
 				SchemaName: tableName,
 				Columns: cols,
 			}
@@ -191,3 +173,64 @@ func createSchemafile(tableName string, migrationPath string) (*os.File, error) 
 
 	return file, nil
 }
+
+func CompareModels(oldModels map[string][]structures.Column, models structures.ModelMap) (bool, error) {
+	res := false
+
+	for tableName, cols := range models {
+		oldCol, exists := oldModels[tableName]
+		if !exists {
+			res = true
+			continue
+		}
+
+		if len(oldCol) != len(cols) {
+            res = true
+            continue
+        }
+
+		// for i := range cols {
+        //     if !cols[i].IsEqual(oldCol[i]) {
+        //         res = false
+        //         break
+        //     }
+        // }
+		
+	}
+
+	return res, nil
+}
+
+func GetLastModels(lastMigrationFolder string) (map[string][]structures.Column, error) {
+	result := make(map[string][]structures.Column)
+
+    files, err := os.ReadDir(lastMigrationFolder)
+    if err != nil {
+        return nil, fmt.Errorf("error reading directory %s: %w", lastMigrationFolder, err)
+    }
+
+    for _, file := range files {
+        if file.IsDir() {
+            continue
+        }
+
+        filePath := filepath.Join(lastMigrationFolder, file.Name())
+        fileContent, err := os.ReadFile(filePath)
+        if err != nil {
+            return nil, fmt.Errorf("error reading file %s: %w", filePath, err)
+        }
+
+        var col []structures.Column
+        if err := json.Unmarshal(fileContent, &col); err != nil {
+            return nil, fmt.Errorf("error unmarshaling JSON from file %s: %w", filePath, err)
+        }
+
+		name := strings.Split(file.Name(), ".")[0]
+
+        result[name] = col
+    }
+
+    return result, nil
+}
+
+
