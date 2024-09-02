@@ -12,28 +12,25 @@ import (
 	"github.com/access6080/jesorm/structures"
 )
 
-
-
-
 func generateCreateQuery(tableName string, cols []structures.Column) string {
 	var queryBuilder strings.Builder
-    queryBuilder.WriteString(fmt.Sprintf("CREATE TABLE %s (", lower(tableName)))
-    count := 0
-    for _, c := range cols {		
+	queryBuilder.WriteString(fmt.Sprintf("CREATE TABLE %s (", lower(tableName)))
+	count := 0
+	for _, c := range cols {
 
-        queryBuilder.WriteString(
-			fmt.Sprintf("%s %s %s", lower(c.Name), 
-				columnType(c.Gotype, c.Sqltype), 
+		queryBuilder.WriteString(
+			fmt.Sprintf("%s %s %s", lower(c.Name),
+				columnType(c.Gotype, c.Sqltype),
 				constraints(c.Constraints)))
-        
-		if count < len(cols) - 1 {
-            queryBuilder.WriteString(", ")
-        }
-        count++
-    }
 
-    queryBuilder.WriteString(");")
-    return queryBuilder.String()
+		if count < len(cols)-1 {
+			queryBuilder.WriteString(", ")
+		}
+		count++
+	}
+
+	queryBuilder.WriteString(");")
+	return queryBuilder.String()
 }
 
 func sqlize(goType string) string {
@@ -45,7 +42,7 @@ func sqlize(goType string) string {
 	case goType == "bool":
 		return "BOOLEAN"
 	}
-	
+
 	return ""
 }
 
@@ -73,7 +70,7 @@ func constraints(cns []string) string {
 		case "Unique":
 			constraintBuilder.WriteString(" UNIQUE ")
 		default:
-			
+
 		}
 	}
 	return constraintBuilder.String()
@@ -83,23 +80,23 @@ func constraints(cns []string) string {
 //     return fmt.Sprintf("FOREIGN KEY (%s) REFERENCES %s", column, reference)
 // }
 
-
 func CreateTable(db structures.DB, tableName string, cs []structures.Column) error {
-
 	query := generateCreateQuery(tableName, cs)
-	db.Db.Exec(query)
+	_, err := db.Db.Exec(query)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-
-func CreateOrmBaseDirectory(basepath string) error {
-	return os.MkdirAll(basepath, os.ModePerm)
+func CreateOrmBaseDirectory(basePath string) error {
+	return os.MkdirAll(basePath, os.ModePerm)
 }
 
-func GetLastMigration(basepath string, currentMigration time.Time) (string, error) {
+func GetLastMigration(basePath string, currentMigration time.Time) (string, error) {
 	// Check the migration directory for the last folder created before currentMigration
-	migrationsPath := filepath.Join(basepath)
+	migrationsPath := filepath.Join(basePath)
 	files, err := os.ReadDir(migrationsPath)
 	if err != nil {
 		return "", err
@@ -129,32 +126,32 @@ func GetLastMigration(basepath string, currentMigration time.Time) (string, erro
 
 func GenerateSchema(m structures.ModelMap, migrationPath string) error {
 	for tableName, cols := range m {
-		file, err := createSchemafile(tableName, migrationPath)
+		file, err := createSchemaFile(tableName, migrationPath)
 		if err != nil {
 			return err
 		}
 
 		func() {
 			defer func() {
-                if err := file.Close(); err != nil {
-                    log.Printf("Error closing file for table %s: %v", tableName, err)
-                }
-            }()
+				if err := file.Close(); err != nil {
+					log.Printf("Error closing file for table %s: %v", tableName, err)
+				}
+			}()
 
 			s := structures.Schema{
 				SchemaName: tableName,
-				Columns: cols,
+				Columns:    cols,
 			}
 
 			jsonData, err := json.Marshal(s)
 			if err != nil {
 				log.Printf("Error marshaling schema for table %s: %v", tableName, err)
-				return 
+				return
 			}
 
 			if _, err = file.Write(jsonData); err != nil {
 				log.Printf("Error writing schema to file for table %s: %v", tableName, err)
-				return 
+				return
 			}
 		}()
 	}
@@ -162,10 +159,10 @@ func GenerateSchema(m structures.ModelMap, migrationPath string) error {
 	return nil
 }
 
-func createSchemafile(tableName string, migrationPath string) (*os.File, error) {
+func createSchemaFile(tableName string, migrationPath string) (*os.File, error) {
 	fileName := fmt.Sprintf("%s.schema.json", tableName)
 	path := filepath.Join(migrationPath, fileName)
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, os.ModePerm) 
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 
 	if err != nil {
 		return nil, err
@@ -174,9 +171,11 @@ func createSchemafile(tableName string, migrationPath string) (*os.File, error) 
 	return file, nil
 }
 
-func CompareModels(oldModels map[string][]structures.Column, models structures.ModelMap) (bool, error) {
+// CompareModels is a function that  returns true if your database tables need to be migrated to the updaterd models
+// and false otherwise
+func CompareModels(oldModels map[string][]structures.Column, models structures.ModelMap) (bool, structures.ModelMap) {
 	res := false
-
+	migrateModels := make(structures.ModelMap)
 	for tableName, cols := range models {
 		oldCol, exists := oldModels[tableName]
 		if !exists {
@@ -185,52 +184,52 @@ func CompareModels(oldModels map[string][]structures.Column, models structures.M
 		}
 
 		if len(oldCol) != len(cols) {
-            res = true
-            continue
-        }
+			res = true
+			continue
+		}
 
-		// for i := range cols {
-        //     if !cols[i].IsEqual(oldCol[i]) {
-        //         res = false
-        //         break
-        //     }
-        // }
-		
+		for i := range cols {
+			if !cols[i].IsEqual(oldCol[i]) {
+				res = true
+				migrateModels[tableName] = append(migrateModels[tableName], cols[i])
+			}
+		}
+
 	}
 
-	return res, nil
+	return res, migrateModels
 }
 
 func GetLastModels(lastMigrationFolder string) (map[string][]structures.Column, error) {
 	result := make(map[string][]structures.Column)
 
-    files, err := os.ReadDir(lastMigrationFolder)
-    if err != nil {
-        return nil, fmt.Errorf("error reading directory %s: %w", lastMigrationFolder, err)
-    }
+	files, err := os.ReadDir(lastMigrationFolder)
+	if err != nil {
+		return nil, fmt.Errorf("error reading directory %s: %w", lastMigrationFolder, err)
+	}
 
-    for _, file := range files {
-        if file.IsDir() {
-            continue
-        }
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
 
-        filePath := filepath.Join(lastMigrationFolder, file.Name())
-        fileContent, err := os.ReadFile(filePath)
-        if err != nil {
-            return nil, fmt.Errorf("error reading file %s: %w", filePath, err)
-        }
+		filePath := filepath.Join(lastMigrationFolder, file.Name())
+		fileContent, err := os.ReadFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("error reading file %s: %w", filePath, err)
+		}
 
-        var col []structures.Column
-        if err := json.Unmarshal(fileContent, &col); err != nil {
-            return nil, fmt.Errorf("error unmarshaling JSON from file %s: %w", filePath, err)
-        }
+		var schema structures.Schema
+		if err := json.Unmarshal(fileContent, &schema); err != nil {
+			return nil, fmt.Errorf("error unmarshaling JSON from file %s: %w", filePath, err)
+		}
 
-		name := strings.Split(file.Name(), ".")[0]
+		result[schema.SchemaName] = schema.Columns
+	}
 
-        result[name] = col
-    }
-
-    return result, nil
+	return result, nil
 }
 
+func PerformMigration(modelMap structures.ModelMap) {
 
+}

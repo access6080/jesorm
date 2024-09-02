@@ -7,16 +7,16 @@ import (
 )
 
 func main() {
-	type  User struct {
-		Name  	string	`type:"VARCHAR(255)" constraints:"PrimaryKey"`
-		Id 		int
-		Registered bool  `constraints:"ForeignKey(Messages.id)"`
-		Account		int	 `type:"INTEGER" constraints:"ForeignKey(Account.id), NotNull, Unique"`
+	type User struct {
+		Name       string `type:"VARCHAR(255)" constraints:"PrimaryKey"`
+		Id         int    `type:"Int(2)"`
+		Registered bool   `constraints:"ForeignKey(Messages.id)"`
+		Account    int    `type:"INTEGER" constraints:"ForeignKey(Account.id), NotNull, Unique"`
 	}
 
 	config := jesorm.Config{
 		DriverName: "sqlite3",
-		DSN: "test:test.db",
+		DSN:        "test:test.db",
 	}
 
 	//Initialize Orm and database
@@ -30,8 +30,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-
-	// Watch models for changes 
+	// Watch models for changes
 	if err = jesorm.AutoMigrate(*model); err != nil {
 		panic(err)
 	}
