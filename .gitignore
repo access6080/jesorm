@@ -2,3 +2,4 @@
 test/*
 jesorm/*
 .idea/*
+*.db
