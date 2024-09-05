@@ -90,7 +90,7 @@ func TestMigrateColumnsReturned(t *testing.T) {
 
 	returnedMap := structures.ModelMap{
 		"User": []structures.Column{
-			structures.Column{
+			{
 				Name:    "Id",
 				Gotype:  "int",
 				Sqltype: "INT(2)",
