@@ -100,7 +100,9 @@ func AutoMigrate(m structures.Model) error {
 			return err
 		}
 
-		helpers.PerformMigration(migrateModels, m)
+		if err := helpers.PerformMigration(migrateModels, m); err != nil {
+			return err
+		}
 	}
 
 	return nil

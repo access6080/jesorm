@@ -9,7 +9,7 @@ import (
 func main() {
 	type User struct {
 		Name       string `type:"VARCHAR(255)" constraints:"PrimaryKey"`
-		Id         int    `type:"Int(2)"`
+		Id         string    `type:"VARCHAR(2)"`
 		Registered bool   `constraints:"ForeignKey(Messages.id)"`
 		Account    int    `type:"INTEGER" constraints:"ForeignKey(Account.id), NotNull, Unique"`
 	}

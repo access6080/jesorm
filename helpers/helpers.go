@@ -230,13 +230,38 @@ func GetLastModels(lastMigrationFolder string) (map[string][]structures.Column, 
 	return result, nil
 }
 
-func PerformMigration(modelMap structures.ModelMap, currentModel structures.Model) {
+func PerformMigration(modelMap structures.ModelMap, currentModel structures.Model) error {
 	if currentModel.DB.Config.DriverName == "sqlite3" {
-		// Create new tables for the intersection of nodelMap and cureent models
+		// Create new tables for the intersection of modelMap and current models
+		for key := range modelMap {
+			if cols, ok := currentModel.Models[key]; ok {
+				newTableName := fmt.Sprintf("new_%s", key)
+				oldTableName := key
 
-		// Move the data from old tables to new tables
+				if err := CreateTable(*currentModel.DB, newTableName, cols); err != nil {
+					return err
+				}
 
-		// Delete old table and Rename new table
+				// Move the data from old tables to new tables
+				moveDataQuery := fmt.Sprintf("INSERT INTO %s SELECT * FROM %s;", newTableName, oldTableName)
+				if _, err := currentModel.DB.Db.Exec(moveDataQuery); err != nil {
+					return err
+				}
+
+				// Delete old table
+				deleteOldTableQuery := fmt.Sprintf("DROP TABLE %s;", oldTableName)
+				if _, err := currentModel.DB.Db.Exec(deleteOldTableQuery); err != nil {
+					return err
+				}
+
+				// Rename new table to old table name
+				renameTableQuery := fmt.Sprintf("ALTER TABLE %s RENAME TO %s;", newTableName, oldTableName)
+				if _, err := currentModel.DB.Db.Exec(renameTableQuery); err != nil {
+					return err
+				}
+			}
+		}
 	}
 
+	return nil
 }
