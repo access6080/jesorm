@@ -230,6 +230,13 @@ func GetLastModels(lastMigrationFolder string) (map[string][]structures.Column, 
 	return result, nil
 }
 
-func PerformMigration(modelMap structures.ModelMap) {
+func PerformMigration(modelMap structures.ModelMap, currentModel structures.Model) {
+	if currentModel.DB.Config.DriverName == "sqlite3" {
+		// Create new tables for the intersection of nodelMap and cureent models
+
+		// Move the data from old tables to new tables
+
+		// Delete old table and Rename new table
+	}
 
 }

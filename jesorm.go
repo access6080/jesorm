@@ -91,7 +91,7 @@ func AutoMigrate(m structures.Model) error {
 		}
 
 		newModels := make(structures.ModelMap)
-		for key, _ := range migrateModels {
+		for key := range migrateModels {
 			cols := m.Models[key]
 			newModels[key] = append(newModels[key], cols...)
 		}
@@ -100,7 +100,7 @@ func AutoMigrate(m structures.Model) error {
 			return err
 		}
 
-		helpers.PerformMigration(migrateModels)
+		helpers.PerformMigration(migrateModels, m)
 	}
 
 	return nil
