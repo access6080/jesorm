@@ -34,4 +34,13 @@ func main() {
 	if err = jesorm.AutoMigrate(*model); err != nil {
 		panic(err)
 	}
+
+	user := User{
+		Name: "geoffery",
+		Id: "1",
+		Registered: false,
+		Account: 001,
+	}
+
+	jesorm.InsertOne(*model, user)
 }

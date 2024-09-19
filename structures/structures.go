@@ -42,6 +42,14 @@ func (c *Column) IsEqual(old Column) bool {
 
 }
 
+type Condition struct {
+    Field    string      // The column name to apply the condition on
+    Operator string      // The operator to use (e.g., "=", ">", "<", "LIKE", etc.)
+    Value    interface{} // The value to compare the field against
+    And      []Condition // Nested conditions for AND logic
+    Or       []Condition // Nested conditions for OR logic
+}
+
 type Schema struct {
     SchemaName  string `json:"schemaName"`
     Columns     []Column `json:"columns"`
